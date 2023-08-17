@@ -97,7 +97,7 @@ class BasicPreProcessor(ABC):
         """Basic methods to select the top n stems."""
         if not self.potential_stems:
             print(
-                "[preprocessor.py] Warning: Potential stems not computed. Computing now. Calling process() will "
+                "[preprocessors.py] Warning: Potential stems not computed. Computing now. Calling process() will "
                 "overwrite this."
             )
             self.compute_potential_stems()
@@ -143,7 +143,7 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
                         self.largest_stem_length = stem_length
 
     def process(self, min_stem_length: int = 3):
-        print("[preprocessor.py] Processing RNA sequence...")
+        print("[preprocessors.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=min_stem_length)
 
@@ -176,6 +176,6 @@ class HBondCountPreProcessor(BasicPreProcessor):
                         self.largest_stem_length = h_bonds
 
     def process(self, min_stem_length: int = 3):
-        print("[preprocessor.py] Processing RNA sequence...")
+        print("[preprocessors.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=min_stem_length)
