@@ -92,7 +92,8 @@ class BasicPreProcessor(object):
 
 class NormalStemLengthPreProcessor(BasicPreProcessor):
     """
-    Preprocessor where stem length model is the basic (BP count) model.
+    Preprocessor where stem length model is the basic (BP count) model: length of a potential stem is the number of
+    base pairs it can form.
     """
 
     def __init__(self, rna: str, **kwargs):
@@ -114,6 +115,38 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
                             self.potential_stems.append(stem)
                     if stem_length > self.largest_stem_length:
                         self.largest_stem_length = stem_length
+
+    def process(self, min_stem_length: int = 3):
+        self.compute_adjacency_matrix()
+        self.compute_potential_stems(min_stem_length=min_stem_length)
+
+
+class HBondCountPreProcessor(BasicPreProcessor):
+    """
+    Preprocessor where stem length model used is the H-bond count model: length of a potential stem is the number of
+    H-bonds it can form.
+    """
+
+    def __init__(self, rna: str, **kwargs):
+        super().__init__(rna, **kwargs)
+
+    def compute_potential_stems(self, min_stem_length: int = 3):
+        matrix = np.triu(self.adj_matrix)  # Upper triangular matrix because of symmetry
+        for i in range(self.rna_length):
+            for j in range(i + 1, self.rna_length):
+                if matrix[i, j] > 0:
+                    i_temp, j_temp = i, j
+                    stem_length, h_bonds = 0, 0
+                    while matrix[i_temp, j_temp] > 0:
+                        stem_length += 1
+                        h_bonds += matrix[i_temp, j_temp]
+                        i_temp += 1
+                        j_temp -= 1
+                        if stem_length >= min_stem_length:
+                            stem = (i + 1, j + 1, h_bonds)
+                            self.potential_stems.append(stem)
+                    if h_bonds > self.largest_stem_length:
+                        self.largest_stem_length = h_bonds
 
     def process(self, min_stem_length: int = 3):
         self.compute_adjacency_matrix()
