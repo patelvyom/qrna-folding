@@ -11,6 +11,7 @@ class BasicPreProcessor(ABC):
     adj_matrix: np.ndarray = None
     rna_length: int = 0
     potential_stems: list[tuple[int, int, int]] = []
+    selected_stems: list[tuple[int, int, int]] = []
     valid_bonds = {
         "AU": 2,
         "UA": 2,
@@ -93,6 +94,9 @@ class BasicPreProcessor(ABC):
     def get_n_potential_stems(self):
         return len(self.potential_stems)
 
+    def get_selected_stems(self):
+        return self.selected_stems
+
     def select_n_stems(self, n: int, method: str = "random"):
         """Basic methods to select the top n stems."""
         if not self.potential_stems:
@@ -105,9 +109,11 @@ class BasicPreProcessor(ABC):
             self.potential_stems
         ), f"n={n} is greater than the number of potential stems={len(self.potential_stems)}"
         if method == "random":
-            return random.choices(self.potential_stems, k=n)
+            self.selected_stems = random.choices(self.potential_stems, k=n)
         elif method == "longest":
-            return sorted(self.potential_stems, key=lambda x: x[2], reverse=True)[:n]
+            self.selected_stems = sorted(
+                self.potential_stems, key=lambda x: x[2], reverse=True
+            )[:n]
         else:
             raise NotImplementedError
 
@@ -142,10 +148,11 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
                     if stem_length > self.largest_stem_length:
                         self.largest_stem_length = stem_length
 
-    def process(self, min_stem_length: int = 3):
+    def process(self, **kwargs):
         print("[preprocessors.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
-        self.compute_potential_stems(min_stem_length=min_stem_length)
+        self.compute_potential_stems(min_stem_length=kwargs["min_stem_length"])
+        self.select_n_stems(kwargs["n"], method=kwargs["method"])
 
 
 class HBondCountPreProcessor(BasicPreProcessor):
@@ -175,7 +182,8 @@ class HBondCountPreProcessor(BasicPreProcessor):
                     if h_bonds > self.largest_stem_length:
                         self.largest_stem_length = h_bonds
 
-    def process(self, min_stem_length: int = 3):
+    def process(self, **kwargs):
         print("[preprocessors.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
-        self.compute_potential_stems(min_stem_length=min_stem_length)
+        self.compute_potential_stems(min_stem_length=kwargs["min_stem_length"])
+        self.select_n_stems(kwargs["n"], kwargs["method"])
