@@ -1,7 +1,10 @@
+import random
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 
-class BasicPreProcessor(object):
+class BasicPreProcessor(ABC):
     """Basic preprocessor for RNA sequences with some commonly used helper functions."""
 
     rna_sequence: str = ""
@@ -77,8 +80,9 @@ class BasicPreProcessor(object):
             return True
         return False
 
+    @abstractmethod
     def compute_potential_stems(self):
-        raise NotImplementedError
+        pass
 
     def get_potential_stems(self):
         return self.potential_stems
@@ -86,8 +90,30 @@ class BasicPreProcessor(object):
     def get_largest_stem_length(self):
         return self.largest_stem_length
 
+    def get_n_potential_stems(self):
+        return len(self.potential_stems)
+
+    def select_n_stems(self, n: int, method: str = "random"):
+        """Basic methods to select the top n stems."""
+        if not self.potential_stems:
+            print(
+                "[preprocessor.py] Warning: Potential stems not computed. Computing now. Calling process() will "
+                "overwrite this."
+            )
+            self.compute_potential_stems()
+        assert n <= len(
+            self.potential_stems
+        ), f"n={n} is greater than the number of potential stems={len(self.potential_stems)}"
+        if method == "random":
+            return random.choices(self.potential_stems, k=n)
+        elif method == "longest":
+            return sorted(self.potential_stems, key=lambda x: x[2], reverse=True)[:n]
+        else:
+            raise NotImplementedError
+
+    @abstractmethod
     def process(self, **kwargs):
-        raise NotImplementedError
+        pass
 
 
 class NormalStemLengthPreProcessor(BasicPreProcessor):
@@ -117,6 +143,7 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
                         self.largest_stem_length = stem_length
 
     def process(self, min_stem_length: int = 3):
+        print("[preprocessor.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=min_stem_length)
 
@@ -149,5 +176,6 @@ class HBondCountPreProcessor(BasicPreProcessor):
                         self.largest_stem_length = h_bonds
 
     def process(self, min_stem_length: int = 3):
+        print("[preprocessor.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=min_stem_length)
