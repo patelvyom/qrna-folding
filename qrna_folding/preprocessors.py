@@ -34,6 +34,7 @@ class BasicPreProcessor(ABC):
         return f"BasePreProcessor(rna_sequence={self.rna_sequence})"
 
     def compute_adjacency_matrix(self, **kwargs):
+        print("Computing adjacency matrix...")
         for i in range(self.rna_length):
             for j in range(i + 1, self.rna_length):
                 if x := self.valid_bonds.get(
@@ -132,6 +133,7 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
         super().__init__(rna, **kwargs)
 
     def compute_potential_stems(self, min_stem_length: int = 3):
+        print("[preprocessors.py] Computing potential stems...")
         matrix = np.triu(self.adj_matrix)  # Upper triangular matrix because of symmetry
         for i in range(self.rna_length):
             for j in range(i + 1, self.rna_length):
@@ -152,6 +154,9 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
         print("[preprocessors.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=kwargs["min_stem_length"])
+        print(
+            f"[preprocessors.py] Found {self.get_n_potential_stems()} potential stems."
+        )
         self.select_n_stems(kwargs["n"], method=kwargs["method"])
 
 
@@ -186,4 +191,7 @@ class HBondCountPreProcessor(BasicPreProcessor):
         print("[preprocessors.py] Processing RNA sequence...")
         self.compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=kwargs["min_stem_length"])
+        print(
+            f"[preprocessors.py] Found {self.get_n_potential_stems()} potential stems."
+        )
         self.select_n_stems(kwargs["n"], kwargs["method"])
