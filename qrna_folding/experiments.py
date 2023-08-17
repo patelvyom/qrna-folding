@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import pennylane as qml
 import preprocessors as preprocessors
+from pennylane import qaoa
 
 
 class QAOAExperiment(ABC):
@@ -13,6 +14,8 @@ class QAOAExperiment(ABC):
     preprocessor: preprocessors.BasicPreProcessor = None
     n_qubits: int = 0
     device: qml.device = None
+    optimizer = qml.GradientDescentOptimizer()
+    optimzer_steps = 100
 
     def __init__(self, preprocessor: preprocessors.BasicPreProcessor):
         self.preprocessor = preprocessor
@@ -45,6 +48,10 @@ class QAOAExperiment(ABC):
     def run(self):
         pass
 
+    @abstractmethod
+    def cost_function(self, params):
+        pass
+
 
 class HamiltonianV1(QAOAExperiment):
     """
@@ -52,9 +59,13 @@ class HamiltonianV1(QAOAExperiment):
     """
 
     name: str = "Hamiltonian V1"
+    circuit_depth: int = 2
 
-    def __init__(self, preprocessor: preprocessors.BasicPreProcessor):
+    def __init__(
+        self, preprocessor: preprocessors.BasicPreProcessor, circuit_depth: int = 2
+    ):
         super().__init__(preprocessor)
+        self.circuit_depth = circuit_depth
 
     def _penalty(self, stem_1, stem_2, c_p: float = 0.0) -> float:
         """
@@ -88,13 +99,23 @@ class HamiltonianV1(QAOAExperiment):
         return h_c
 
     def mixer_hamiltonian(self):
-        pass
+        """
+        Simple X-mixer as described in Jiang et al. (2023).
+        """
+        return qml.Hamiltonian([1], [qml.PauliX(wires=i) for i in range(self.n_qubits)])
 
     def qaoa_layer(self, gamma, alpha):
-        pass
+        qaoa.cost_layer(gamma, self.cost_hamiltonian())
+        qaoa.mixer_layer(alpha, self.mixer_hamiltonian())
 
-    def qaoa_circuit(self, gamma, alpha):
-        pass
+    def qaoa_circuit(self, params, **kwargs):
+        for w in range(self.n_qubits):
+            qml.Hadamard(wires=w)
+        qml.layer(self.qaoa_layer, self.circuit_depth, params[0], params[1])
+
+    def cost_function(self, params, **kwargs):
+        self.qaoa_circuit(params)
+        return qml.expval(self.cost_hamiltonian())
 
     def run(self):
         pass
