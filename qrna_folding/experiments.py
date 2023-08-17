@@ -14,9 +14,9 @@ class QAOAExperiment(ABC):
     n_qubits: int = 0
     device: qml.device = None
 
-    def __init__(self, preprocessor: preprocessors.BasicPreProcessor, n_qubits: int):
+    def __init__(self, preprocessor: preprocessors.BasicPreProcessor):
         self.preprocessor = preprocessor
-        self.n_qubits = n_qubits
+        self.n_qubits = len(preprocessor.get_selected_stems())
         self.device = qml.device("default.qubit", wires=self.n_qubits)
 
     def __repr__(self):
@@ -53,8 +53,8 @@ class HamiltonianV1(QAOAExperiment):
 
     name: str = "Hamiltonian V1"
 
-    def __init__(self, preprocessor: preprocessors.BasicPreProcessor, n_qubits: int):
-        super().__init__(preprocessor, n_qubits)
+    def __init__(self, preprocessor: preprocessors.BasicPreProcessor):
+        super().__init__(preprocessor)
 
     def _penalty(self, stem_1, stem_2, c_p: float = 0.0) -> float:
         """
@@ -68,7 +68,7 @@ class HamiltonianV1(QAOAExperiment):
             return 0
 
     def cost_hamiltonian(self, eps: float = 6, c_p: float = 0.0):
-        stems = self.preprocessor.get_selected_stems
+        stems = self.preprocessor.get_selected_stems()
         h_c: qml.Hamiltonian = qml.Hamiltonian([], [])
         n_stems = len(stems)
         for i in range(n_stems):
