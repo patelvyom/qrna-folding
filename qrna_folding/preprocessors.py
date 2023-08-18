@@ -4,6 +4,45 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
+def are_stems_overlapping(stem1: tuple, stem2: tuple) -> bool:
+    """Check if two stems are overlapping. Refer:
+    https://github.com/JuanGiraldo0212/Qhack-qnyble/blob/main/qrna_folding_qaoa.ipynb
+    TODO: Give explicit example.
+    """
+    stem1_span1 = set(range(stem1[0], stem1[0] + stem1[2]))
+    stem2_span1 = set(range(stem2[0], stem2[0] + stem2[2]))
+    stem1_span2 = set(range(stem1[1] - stem1[2] + 1, stem1[1] + 1))
+    stem2_span2 = set(range(stem2[1] - stem2[2] + 1, stem2[1] + 1))
+
+    if (
+        (len(stem1_span1 & stem2_span1) > 0)
+        or (len(stem1_span2 & stem2_span2) > 0)
+        or (len(stem1_span1 & stem2_span2) > 0)
+        or (len(stem1_span2 & stem2_span1) > 0)
+    ):
+        return True
+    return False
+
+
+def are_stems_pseudoknotted(stem1: tuple, stem2: tuple) -> bool:
+    """Check if two stems are pseudoknotted. Refer: Fox et al.
+    https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010032
+    """
+
+    assert not are_stems_overlapping(
+        stem1, stem2
+    ), "Stems are overlapping. Cannot check for pseudoknots."
+
+    i_a: int = stem1[0]
+    j_a: int = stem1[1]
+    i_b: int = stem2[0]
+    j_b: int = stem2[1]
+
+    if (i_a < i_b < j_a < j_b) or (i_b < i_a < j_b < j_a):
+        return True
+    return False
+
+
 class BasicPreProcessor(ABC):
     """Basic preprocessor for RNA sequences with some commonly used helper functions."""
 
@@ -34,7 +73,7 @@ class BasicPreProcessor(ABC):
         return f"BasePreProcessor(rna_sequence={self.rna_sequence})"
 
     def compute_adjacency_matrix(self, **kwargs):
-        print("Computing adjacency matrix...")
+        print("[preprocessors.py] Computing adjacency matrix...")
         for i in range(self.rna_length):
             for j in range(i + 1, self.rna_length):
                 if x := self.valid_bonds.get(
@@ -44,43 +83,6 @@ class BasicPreProcessor(ABC):
 
     def get_adjacency_matrix(self):
         return self.adj_matrix
-
-    def are_stems_overlapping(self, stem1: tuple, stem2: tuple) -> bool:
-        """Check if two stems are overlapping. Refer:
-        https://github.com/JuanGiraldo0212/Qhack-qnyble/blob/main/qrna_folding_qaoa.ipynb
-        TODO: Give explicit example.
-        """
-        stem1_span1 = set(range(stem1[0], stem1[0] + stem1[2]))
-        stem2_span1 = set(range(stem2[0], stem2[0] + stem2[2]))
-        stem1_span2 = set(range(stem1[1] - stem1[2] + 1, stem1[1] + 1))
-        stem2_span2 = set(range(stem2[1] - stem2[2] + 1, stem2[1] + 1))
-
-        if (
-            (len(stem1_span1 & stem2_span1) > 0)
-            or (len(stem1_span2 & stem2_span2) > 0)
-            or (len(stem1_span1 & stem2_span2) > 0)
-            or (len(stem1_span2 & stem2_span1) > 0)
-        ):
-            return True
-        return False
-
-    def are_stems_pseudoknotted(self, stem1: tuple, stem2: tuple) -> bool:
-        """Check if two stems are pseudoknotted. Refer: Fox et al.
-        https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010032
-        """
-
-        assert not self.are_stems_overlapping(
-            stem1, stem2
-        ), "Stems are overlapping. Cannot check for pseudoknots."
-
-        i_a: int = stem1[0]
-        j_a: int = stem1[1]
-        i_b: int = stem2[0]
-        j_b: int = stem2[1]
-
-        if (i_a < i_b < j_a < j_b) or (i_b < i_a < j_b < j_a):
-            return True
-        return False
 
     @abstractmethod
     def compute_potential_stems(self):
