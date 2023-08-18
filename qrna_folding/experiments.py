@@ -2,7 +2,11 @@ from abc import ABC, abstractmethod
 
 import pennylane as qml
 import preprocessors as preprocessors
+from pennylane import numpy as np
 from pennylane import qaoa
+from tqdm import tqdm
+
+N_SHOTS = None
 
 
 class QAOAExperiment(ABC):
@@ -13,14 +17,19 @@ class QAOAExperiment(ABC):
     name: str = "QAOA Base Experiment"
     preprocessor: preprocessors.BasicPreProcessor = None
     n_qubits: int = 0
-    device: qml.device = None
-    optimizer = qml.GradientDescentOptimizer()
-    optimzer_steps = 100
+    dev: qml.device = None
+    optimizer = None
+    optimizer_steps = 100
 
-    def __init__(self, preprocessor: preprocessors.BasicPreProcessor):
+    def __init__(self, preprocessor: preprocessors.BasicPreProcessor, **kwargs):
         self.preprocessor = preprocessor
         self.n_qubits = len(preprocessor.get_selected_stems())
-        self.device = qml.device("default.qubit", wires=self.n_qubits)
+        self.dev = qml.device(
+            kwargs.get("device", "default.qubit"),
+            wires=self.n_qubits,
+            shots=kwargs.get("shots", N_SHOTS),
+        )
+        self.optimizer = qml.AdagradOptimizer(stepsize=0.1)
 
     def __repr__(self):
         return f"Experiment(name={self.name}, preprocessor={self.preprocessor}, n_qubits={self.n_qubits})"
@@ -29,11 +38,11 @@ class QAOAExperiment(ABC):
         return f"Experiment(name={self.name}, preprocessor={self.preprocessor}, n_qubits={self.n_qubits})"
 
     @abstractmethod
-    def cost_hamiltonian(self):
+    def _compute_cost_h(self):
         pass
 
     @abstractmethod
-    def mixer_hamiltonian(self):
+    def _compute_mixer_h(self):
         pass
 
     @abstractmethod
@@ -41,7 +50,7 @@ class QAOAExperiment(ABC):
         pass
 
     @abstractmethod
-    def qaoa_circuit(self, gamma, alpha):
+    def qaoa_circuit(self, params):
         pass
 
     @abstractmethod
@@ -60,29 +69,37 @@ class HamiltonianV1(QAOAExperiment):
 
     name: str = "Hamiltonian V1"
     circuit_depth: int = 2
+    cost_h: qml.Hamiltonian = None
+    mixer_h: qml.Hamiltonian = None
 
     def __init__(
-        self, preprocessor: preprocessors.BasicPreProcessor, circuit_depth: int = 2
+        self,
+        preprocessor: preprocessors.BasicPreProcessor,
+        circuit_depth: int = 2,
+        **kwargs,
     ):
-        super().__init__(preprocessor)
+        super().__init__(preprocessor, **kwargs)
         self.circuit_depth = circuit_depth
+        self.cost_h = self._compute_cost_h(kwargs.get("eps", 6), kwargs.get("c_p", 0.0))
+        self.mixer_h = self._compute_mixer_h()
 
     def _penalty(self, stem_1, stem_2, c_p: float = 0.0) -> float:
         """
         Penalty function for two overlapping or pseudoknotted stems as described in Jiang et al. (2023).
         """
-        if self.preprocessor.are_stems_overlapping(stem_1, stem_2):
+        if preprocessors.are_stems_overlapping(stem_1, stem_2):
             return -(len(stem_1) + len(stem_2))
-        elif self.preprocessor.are_stems_pseudoknotted(stem_1, stem_2):
+        elif preprocessors.are_stems_pseudoknotted(stem_1, stem_2):
             return c_p * (len(stem_1) + len(stem_2))
         else:
             return 0
 
-    def cost_hamiltonian(self, eps: float = 6, c_p: float = 0.0):
+    def _compute_cost_h(self, eps: float = 6, c_p: float = 0.0) -> qml.Hamiltonian:
+        print("[experiments.py] Generating cost Hamiltonian...")
         stems = self.preprocessor.get_selected_stems()
         h_c: qml.Hamiltonian = qml.Hamiltonian([], [])
         n_stems = len(stems)
-        for i in range(n_stems):
+        for i in tqdm(range(n_stems)):
             stem_i = stems[i]
             k_i = len(stem_i)
             qubit_ops = (qml.Identity(wires=i) - qml.PauliZ(wires=i)) / 2
@@ -98,24 +115,34 @@ class HamiltonianV1(QAOAExperiment):
                 h_c += h * self._penalty(stem_i, stem_j, c_p)
         return h_c
 
-    def mixer_hamiltonian(self):
+    def _compute_mixer_h(self) -> qml.Hamiltonian:
         """
         Simple X-mixer as described in Jiang et al. (2023).
         """
-        return qml.Hamiltonian([1], [qml.PauliX(wires=i) for i in range(self.n_qubits)])
+        print("[experiments.py] Generating mixer Hamiltonian...")
+        return qaoa.x_mixer(wires=range(self.n_qubits))
 
     def qaoa_layer(self, gamma, alpha):
-        qaoa.cost_layer(gamma, self.cost_hamiltonian())
-        qaoa.mixer_layer(alpha, self.mixer_hamiltonian())
+        qaoa.cost_layer(gamma, self.cost_h)
+        qaoa.mixer_layer(alpha, self.mixer_h)
 
-    def qaoa_circuit(self, params, **kwargs):
+    def qaoa_circuit(self, params):
+        print("[experiments.py] Generating QAOA circuit...")
         for w in range(self.n_qubits):
             qml.Hadamard(wires=w)
         qml.layer(self.qaoa_layer, self.circuit_depth, params[0], params[1])
 
-    def cost_function(self, params, **kwargs):
-        self.qaoa_circuit(params)
-        return qml.expval(self.cost_hamiltonian())
+    def cost_function(self, params):
+        @qml.qnode(self.dev)
+        def circuit(params):
+            self.qaoa_circuit(params)
+            return qml.expval(self.cost_h)
+
+        return circuit(params)
 
     def run(self):
-        pass
+        params = np.random.rand(2, self.circuit_depth)
+        for i in range(self.optimizer_steps):
+            params, prev_cost = self.optimizer.step_and_cost(self.cost_function, params)
+            print(f"Cost after step {i}: {prev_cost}")
+            print(f"Params after step {i}: {params}")
