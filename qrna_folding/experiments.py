@@ -46,11 +46,15 @@ class QAOAExperiment(ABC):
         pass
 
     @abstractmethod
+    def initial_layer(self):
+        pass
+
+    @abstractmethod
     def qaoa_layer(self, params):
         pass
 
     @abstractmethod
-    def qaoa_circuit(self, params):
+    def circuit(self, params):
         pass
 
     @abstractmethod
@@ -122,23 +126,25 @@ class HamiltonianV1(QAOAExperiment):
         print("[experiments.py] Generating mixer Hamiltonian...")
         return qaoa.x_mixer(wires=range(self.n_qubits))
 
+    def initial_layer(self):
+        for w in range(self.n_qubits):
+            qml.Hadamard(wires=w)
+
     def qaoa_layer(self, params):
         qaoa.cost_layer(params[0], self.cost_h)
         qaoa.mixer_layer(params[1], self.mixer_h)
 
-    def qaoa_circuit(self, params):
-        print("[experiments.py] Generating QAOA circuit...")
-        for w in range(self.n_qubits):
-            qml.Hadamard(wires=w)
+    def circuit(self, params):
+        self.initial_layer()
         qml.layer(self.qaoa_layer, self.circuit_depth, params)
 
     def cost_function(self, params):
         @qml.qnode(self.dev)
-        def circuit(params):
-            self.qaoa_circuit(params)
+        def _circuit(params):
+            self.circuit(params)
             return qml.expval(self.cost_h)
 
-        return circuit(params)
+        return _circuit(params)
 
     def run(self):
         params = np.random.rand(self.circuit_depth, 2)
