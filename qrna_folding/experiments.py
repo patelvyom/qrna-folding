@@ -6,7 +6,7 @@ from pennylane import numpy as np
 from pennylane import qaoa
 from tqdm import tqdm
 
-N_SHOTS = None
+N_SHOTS = 100
 
 
 class QAOAExperiment(ABC):
@@ -29,7 +29,7 @@ class QAOAExperiment(ABC):
             wires=self.n_qubits,
             shots=kwargs.get("shots", N_SHOTS),
         )
-        self.optimizer = qml.AdagradOptimizer(stepsize=0.1)
+        self.optimizer = qml.AdamOptimizer(stepsize=0.1)
 
     def __repr__(self):
         return f"Experiment(name={self.name}, preprocessor={self.preprocessor}, n_qubits={self.n_qubits})"
@@ -46,7 +46,7 @@ class QAOAExperiment(ABC):
         pass
 
     @abstractmethod
-    def qaoa_layer(self, gamma, alpha):
+    def qaoa_layer(self, params):
         pass
 
     @abstractmethod
@@ -122,15 +122,15 @@ class HamiltonianV1(QAOAExperiment):
         print("[experiments.py] Generating mixer Hamiltonian...")
         return qaoa.x_mixer(wires=range(self.n_qubits))
 
-    def qaoa_layer(self, gamma, alpha):
-        qaoa.cost_layer(gamma, self.cost_h)
-        qaoa.mixer_layer(alpha, self.mixer_h)
+    def qaoa_layer(self, params):
+        qaoa.cost_layer(params[0], self.cost_h)
+        qaoa.mixer_layer(params[1], self.mixer_h)
 
     def qaoa_circuit(self, params):
         print("[experiments.py] Generating QAOA circuit...")
         for w in range(self.n_qubits):
             qml.Hadamard(wires=w)
-        qml.layer(self.qaoa_layer, self.circuit_depth, params[0], params[1])
+        qml.layer(self.qaoa_layer, self.circuit_depth, params)
 
     def cost_function(self, params):
         @qml.qnode(self.dev)
@@ -141,7 +141,8 @@ class HamiltonianV1(QAOAExperiment):
         return circuit(params)
 
     def run(self):
-        params = np.random.rand(2, self.circuit_depth)
+        params = np.random.rand(self.circuit_depth, 2)
+        print(f"Initial params: {params}")
         for i in range(self.optimizer_steps):
             params, prev_cost = self.optimizer.step_and_cost(self.cost_function, params)
             print(f"Cost after step {i}: {prev_cost}")
