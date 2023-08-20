@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import matplotlib.pyplot as plt
 import pennylane as qml
 import preprocessors as preprocessors
 from pennylane import numpy as np
@@ -23,7 +24,7 @@ class QAOAExperiment(ABC):
 
     def __init__(self, preprocessor: preprocessors.BasicPreProcessor, **kwargs):
         self.preprocessor = preprocessor
-        self.n_qubits = len(preprocessor.get_selected_stems())
+        self.n_qubits = len(preprocessor.selected_stems)
         self.dev = qml.device(
             kwargs.get("device", "default.qubit"),
             wires=self.n_qubits,
@@ -100,14 +101,15 @@ class HamiltonianV1(QAOAExperiment):
 
     def _compute_cost_h(self, eps: float = 6, c_p: float = 0.0) -> qml.Hamiltonian:
         print("[experiments.py] Generating cost Hamiltonian...")
-        stems = self.preprocessor.get_selected_stems()
-        h_c: qml.Hamiltonian = qml.Hamiltonian([], [])
+        stems = self.preprocessor.selected_stems
+        n_bases = self.preprocessor.rna_length
         n_stems = len(stems)
+        h_c: qml.Hamiltonian = qml.Hamiltonian([], [])
         for i in tqdm(range(n_stems)):
             stem_i = stems[i]
             k_i = len(stem_i)
             qubit_ops = (qml.Identity(wires=i) - qml.PauliZ(wires=i)) / 2
-            coeffs = -2 * k_i + n_stems / (2 * k_i + eps)
+            coeffs = -2 * k_i + n_bases / (2 * k_i + eps)
             h_c += coeffs * qubit_ops
             for j in range(0, i):
                 stem_j = stems[j]
@@ -148,6 +150,7 @@ class HamiltonianV1(QAOAExperiment):
 
     def run(self):
         params = np.random.rand(self.circuit_depth, 2)
+        print(f"Using device: {self.dev}")
         print(f"Initial params: {params}")
         for i in range(self.optimizer_steps):
             params, prev_cost = self.optimizer.step_and_cost(self.cost_function, params)
