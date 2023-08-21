@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 import pennylane as qml
 import preprocessors as preprocessors
+import utils
 from pennylane import numpy as np
 from pennylane import qaoa
-from tqdm import tqdm
 
 N_SHOTS = 100
 
@@ -104,21 +104,28 @@ class HamiltonianV1(QAOAExperiment):
         stems = self.preprocessor.selected_stems
         n_bases = self.preprocessor.rna_length
         n_stems = len(stems)
-        h_c: qml.Hamiltonian = qml.Hamiltonian([], [])
-        for i in tqdm(range(n_stems)):
+
+        coeffs = []
+        observables = []
+        for i in range(n_stems):
             stem_i = stems[i]
             k_i = len(stem_i)
-            qubit_ops = (qml.Identity(wires=i) - qml.PauliZ(wires=i)) / 2
-            coeffs = -2 * k_i + n_bases / (2 * k_i + eps)
-            h_c += coeffs * qubit_ops
+            coeff = -2 * k_i + n_bases / (2 * k_i + eps)
+            coeffs.append(coeff)
+            observables.append((qml.Identity(wires=i) - qml.PauliZ(wires=i)) / 2)
             for j in range(0, i):
                 stem_j = stems[j]
-                h = (
-                    (qml.Identity(wires=i) - qml.PauliZ(wires=i))
-                    @ (qml.Identity(wires=j) - qml.PauliZ(wires=j))
-                    / 4
-                )
-                h_c += h * self._penalty(stem_i, stem_j, c_p)
+                penalty = self._penalty(stem_i, stem_j, c_p)
+                if penalty != 0:
+                    obs = (
+                        (qml.Identity(wires=i) - qml.PauliZ(wires=i))
+                        @ (qml.Identity(wires=j) - qml.PauliZ(wires=j))
+                        / 4
+                    )
+                    coeffs.append(penalty)
+                    observables.append(obs)
+
+        h_c = utils.hamiltonian_sum(coeffs, observables)
         return h_c
 
     def _compute_mixer_h(self) -> qml.Hamiltonian:
