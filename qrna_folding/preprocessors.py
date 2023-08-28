@@ -164,7 +164,6 @@ class NormalStemLengthPreProcessor(BasicPreProcessor):
         self._compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=kwargs["min_stem_length"])
         print(f"[preprocessors.py] Found {self.n_potential_stems} potential stems.")
-        self.select_n_stems(kwargs["n"], method=kwargs["method"])
 
 
 class HBondCountPreProcessor(BasicPreProcessor):
@@ -201,4 +200,3 @@ class HBondCountPreProcessor(BasicPreProcessor):
         self._compute_adjacency_matrix()
         self.compute_potential_stems(min_stem_length=kwargs["min_stem_length"])
         print(f"[preprocessors.py] Found {self.n_potential_stems} potential stems.")
-        self.select_n_stems(kwargs["n"], kwargs["method"])

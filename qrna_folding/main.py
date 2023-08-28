@@ -38,13 +38,16 @@ def main(argv: List[str]) -> None:
 
         st.markdown("### Potential Stems")
         st.markdown(f"#### Found {preprocessor.n_potential_stems} potential stems.")
-        n_stems_to_select = int(st.text_input("Enter number of stems to select", "20"))
-        selection_method = st.selectbox(
-            "Choose selection method", ["longest", "random"]
-        )
-        preprocessor.select_n_stems(n_stems_to_select, method=selection_method)
-        st.markdown("#### Selected Stems")
-        st.write(preprocessor.selected_stems)
+
+    st.markdown("### Selected Stems")
+    n_stems_to_select = int(st.text_input("Enter number of stems to select", "20"))
+    selection_method = st.selectbox("Choose selection method", ["longest", "random"])
+    preprocessor.select_n_stems(n_stems_to_select, method=selection_method)
+
+    if st.button("Visualise Selected Stems"):
+        for stem in preprocessor.selected_stems:
+            ax = viz.generate_network_graph_image(rna_sequence, stem)
+            st.pyplot(ax.figure)
 
     n_layers = int(st.text_input("Enter number of layers", "5"))
     device = st.selectbox("Choose device", ["default.qubit", "lightning.qubit"])
