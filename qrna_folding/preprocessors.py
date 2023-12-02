@@ -46,11 +46,6 @@ def are_stems_pseudoknotted(stem1: tuple, stem2: tuple) -> bool:
 class BasicPreProcessor(ABC):
     """Basic preprocessor for RNA sequences with some commonly used helper functions."""
 
-    rna_sequence: str = ""
-    _adj_matrix: np.ndarray = None
-    rna_length: int = 0
-    _potential_stems: list[tuple[int, int, int]] = []
-    _selected_stems: list[tuple[int, int, int]] = []
     valid_bonds = {
         "AU": 2,
         "UA": 2,
@@ -59,12 +54,14 @@ class BasicPreProcessor(ABC):
         "GU": 2,
         "UG": 2,
     }  # Values represent no. of H-bonds
-    _largest_stem_length: int = 0
 
     def __init__(self, rna: str, **kwargs):
         self.rna_sequence = rna
         self.rna_length = len(rna)
         self._adj_matrix = np.zeros((self.rna_length, self.rna_length), dtype=int)
+        self._potential_stems: list[tuple[int, int, int]] = []
+        self._selected_stems: list[tuple[int, int, int]] = []
+        self._largest_stem_length: int = 0
 
     def __repr__(self):
         return f"BasePreProcessor(rna_sequence={self.rna_sequence}) \n adj_matrix={self._adj_matrix}"

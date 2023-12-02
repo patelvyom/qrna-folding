@@ -16,10 +16,6 @@ class QAOAExperiment(ABC):
     """
 
     name: str = "QAOA Base Experiment"
-    preprocessor: preprocessors.BasicPreProcessor = None
-    n_qubits: int = 0
-    dev: qml.device = None
-    optimizer = None
     optimizer_steps = 100
 
     def __init__(self, preprocessor: preprocessors.BasicPreProcessor, **kwargs):
@@ -31,6 +27,7 @@ class QAOAExperiment(ABC):
             shots=kwargs.get("shots", N_SHOTS),
         )
         self.optimizer = qml.AdamOptimizer(stepsize=0.1)
+        self.optimizer_steps = kwargs.get("optimizer_steps", self.optimizer_steps)
 
     def __repr__(self):
         return f"Experiment(name={self.name}, preprocessor={self.preprocessor}, n_qubits={self.n_qubits})"
@@ -73,9 +70,6 @@ class HamiltonianV1(QAOAExperiment):
     """
 
     name: str = "Hamiltonian V1"
-    circuit_depth: int = 2
-    cost_h: qml.Hamiltonian = None
-    mixer_h: qml.Hamiltonian = None
 
     def __init__(
         self,
