@@ -1,0 +1,31 @@
+[project]
+name = "qrna-folding"
+version = "0.1.0"
+description = "Quantum RNA secondary structure prediction using QAOA"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Vyom Patel", email = "vyom.patel@uwaterloo.ca" }]
+license = { text = "MIT" }
+keywords = ["quantum", "rna", "qaoa", "pennylane", "bioinformatics"]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.4", "pre-commit>=3.3"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = ["E501"] # line too long (handled by formatter)
+
+[tool.ruff.format]
+quote-style = "double"
+

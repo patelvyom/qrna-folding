@@ -1,8 +1,0 @@
-pre-commit>=3.3.0
-pennylane
-pennylane-qiskit
-streamlit
-networkx
-seaborn
-matplotlib
-numpy
