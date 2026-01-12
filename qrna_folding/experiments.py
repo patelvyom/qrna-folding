@@ -149,11 +149,64 @@ class HamiltonianV1(QAOAExperiment):
 
         return _circuit(params)
 
-    def run(self):
+    def _sample_circuit(self, params) -> dict[str, float]:
+        """
+        Sample the final circuit to get bitstring probabilities.
+        Returns dict mapping bitstrings to their probabilities.
+        """
+        # Create a device without shots for exact probabilities
+        dev_exact = qml.device("default.qubit", wires=self.n_qubits)
+
+        @qml.qnode(dev_exact)
+        def prob_circuit(params):
+            self.circuit(params)
+            return qml.probs(wires=range(self.n_qubits))
+
+        probs = prob_circuit(params)
+        # Convert to dict with bitstring keys
+        result = {}
+        for i, p in enumerate(probs):
+            bitstring = format(i, f"0{self.n_qubits}b")
+            if p > 1e-6:  # Filter out negligible probabilities
+                result[bitstring] = float(p)
+        return result
+
+    def run(self) -> dict:
+        """
+        Run QAOA optimization and return results.
+
+        Returns:
+            dict with keys:
+                - costs: list of cost values during optimization
+                - best_bitstring: optimal solution bitstring
+                - probabilities: dict of bitstring -> probability
+                - selected_stems: list of stems corresponding to '1' bits in best solution
+        """
         params = np.random.rand(self.circuit_depth, 2)
         print(f"Using device: {self.dev}")
         print(f"Initial params: {params}")
+
+        costs = []
         for i in range(self.optimizer_steps):
             params, prev_cost = self.optimizer.step_and_cost(self.cost_function, params)
-            print(f"Cost after step {i}: {prev_cost}")
-            print(f"Params after step {i}: {params}")
+            costs.append(float(prev_cost))
+            if i % 10 == 0 or i == self.optimizer_steps - 1:
+                print(f"Step {i}: cost = {prev_cost:.4f}")
+
+        # Sample final state
+        probs = self._sample_circuit(params)
+        best_bitstring = max(probs, key=probs.get)
+
+        # Map best bitstring to selected stems
+        stems = self.preprocessor.selected_stems
+        selected_stems = [
+            stems[i] for i, bit in enumerate(best_bitstring) if bit == "1"
+        ]
+
+        return {
+            "costs": costs,
+            "best_bitstring": best_bitstring,
+            "probabilities": probs,
+            "selected_stems": selected_stems,
+            "final_params": params,
+        }
